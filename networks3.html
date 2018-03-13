@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+	<link rel="icon" href="/favicon.ico" type="image/x-icon">
+	<title>D3</title>
+
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans|Roboto+Slab" rel="stylesheet">
+	<link href="css/bootstrap.min.css" rel="stylesheet">
+	<link href="css/main.css" rel="stylesheet">
+	<link href="css/fonts.css" rel="stylesheet">
+	<style>
+			.node {
+			    fill: #ccc;
+			    stroke: #fff;
+			    stroke-width: 2px;
+			}
+
+			.link {
+					stroke: #999;
+					stroke-opacity: 0.3;
+			}
+    </style>
+</head>
+<body>
+
+	<div class="container">
+
+			<h1>A preferida do Brasil</h1>
+
+		<div id="chart"></div>
+
+		<div class="section">
+
+			<div class="row">
+				<div class="col-md-8">
+
+					<p> Aqui podemos ver bandas/artistas parecidas com o artista Jason Mraz. O círculo mais escuro é o de Jason Mraz. O tamanho do círculo é propocional a popularidade do artista. Tentei mudar os atributos da força de forma que fosse possível visualizar algumas aglomerações de artistas</p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<footer></footer>
+
+	<!-- scripts -->
+	<script src="js/d3.v4.min.js"></script>
+	<script>
+		var
+		    width = 1000,
+		    height = 1000;
+
+		var svg = d3.select("#chart")
+				.append("svg")
+				.attr('version', '1.1')
+				.attr('viewBox', '0 0 '+width+' '+height)
+				.attr('width', '100%');
+
+		var color = d3.scaleOrdinal(d3.schemeCategory20);
+
+		var simulation = d3.forceSimulation()
+		    .force("link", d3.forceLink().id(function(d) { return d.id; }).strength(0.2).iterations(7).distance(20))
+		    .force("charge", d3.forceManyBody())
+		    .force("center", d3.forceCenter(width / 2, height / 2));
+
+		d3.json("mraz.json", function(error, graph) {
+
+			if (error) throw error;
+
+			function has(id, json) {
+				for(var i = 0; i < json.length; i++) {
+					if(json[i].id === id) {
+						return true;
+					}
+				}
+				return false;
+			}
+
+			graph.nodes = graph.nodes.filter(a=>a.size >= 70)
+			console.log(graph.nodes.length)
+			graph.edges = graph.edges.filter(function(e) { return (has(e.source, graph.nodes) && has(e.target, graph.nodes))})
+
+			let x = 0
+			let mySet = new Set()
+			let q = []
+
+			for(let i = 0; i < graph.nodes.length; i++) {
+				if(graph.nodes[i].id === "4phGZZrJZRo4ElhRtViYdl") {
+					x = i
+					graph.nodes[i].dis = 0
+					mySet.add(i)
+					q.push(i)
+				}
+			}
+
+			console.log(graph.nodes.length)
+			console.log(graph.edges.length)
+
+			while(q.length !== 0) {
+				let idx = q.shift()
+				for(let i = 0; i < graph.edges.length; i++) {
+
+					if(graph.edges[i].source === graph.nodes[idx].id) {
+						let other2 = 0
+						for(let j2 = 0; j2 < graph.nodes.length; j2++) {
+							if(graph.edges[i].target === graph.nodes[j2].id) {
+								other2 = j2
+							}
+						}
+						if(mySet.add(other2)) {
+							q.push(other2)
+							graph.nodes[other2].dis = graph.nodes[idx].dis+1
+						}
+					}
+				}
+			}
+
+
+
+			console.dir(graph.edges);
+			console.dir(graph.nodes);
+
+		  var link = svg.append("g")
+		      .attr("class", "link")
+		    .selectAll("line")
+		    	.data(graph.edges)
+		    .enter().append("line");
+
+		  var node = svg.append("g")
+		      .attr("class", "nodes")
+		    .selectAll("circle")
+		    	.data(graph.nodes)
+		    .enter().append("circle")
+		      .attr("r",  function(d)  {return (d.size-50)/7})
+		      .attr("fill", function(d) { return color(d.id==="4phGZZrJZRo4ElhRtViYdl"); })
+		      .call(d3.drag()
+		          .on("start", dragstarted)
+		          .on("drag", dragged)
+		          .on("end", dragended));
+
+		  node.append("title")
+		      .text(function(d) { return d.dis; });
+
+		  simulation
+		      .nodes(graph.nodes)
+		      .on("tick", ticked);
+
+		  simulation.force("link")
+		      .links(graph.edges).iterations(2);
+
+		  function ticked() {
+		    link
+		        .attr("x1", function(d) { return d.source.x; })
+		        .attr("y1", function(d) { return d.source.y; })
+		        .attr("x2", function(d) { return d.target.x; })
+		        .attr("y2", function(d) { return d.target.y; });
+
+		    node
+		        .attr("cx", function(d) { return d.x; })
+		        .attr("cy", function(d) { return d.y; });
+		  }
+		});
+
+		function dragstarted(d) {
+		  if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+		  d.fx = d.x;
+		  d.fy = d.y;
+		}
+
+		function dragged(d) {
+		  d.fx = d3.event.x;
+		  d.fy = d3.event.y;
+		}
+
+		function dragended(d) {
+		  if (!d3.event.active) simulation.alphaTarget(0);
+		  d.fx = null;
+		  d.fy = null;
+		}
+
+</script>
+
+</body>
+</html>
